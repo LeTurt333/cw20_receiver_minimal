@@ -33,14 +33,21 @@ pub fn instantiate(
     info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let admin = info.sender.to_string();
+
+    let cw20_whitelist: Vec<(String, Addr)> = vec![
+        ("NETA".to_string(), deps.api.addr_validate("juno168ctmpyppk90d34p3jjy658zf5a5l3w8wk35wht6ccqj4mr0yv8s4j5awr")?),
+        ("RAW".to_string(), deps.api.addr_validate("juno15u3dt79t6sxxa3x3kpkhzsy56edaa5a66wvt3kxmukqjz2sx0hes5sn38g")?),
+    ];
 
     CONFIG.save(
         deps.storage,
         &Config {
             admin: deps.api.addr_validate(&admin)?,
+            cw20_wl: cw20_whitelist,
         },
     )?;
 
@@ -59,7 +66,7 @@ pub fn instantiate(
 //// the "Send{contract, amount, msg}" execute on the Cw20 contract,
 //// -> Where "contract" is the Address of this contract
 //// -> Where "amount" is the amount of Cw20 tokens to send to this contract
-//// -> Where "msg" is <in binary> is the ReceiveMsg variant on line 102
+//// -> Where "msg" is <in binary> the ReceiveMsg variant on line 93
 ////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -96,24 +103,14 @@ pub fn execute_receive(
         amount: wrapper.amount,
     });
 
-    // If you wanted to add a <perhaps unnecessary> check that the user has enough tokens
-    // you could query the sending contract to get user's balance & verify it's >= wrapper.amount
-    //let bal_res: BalanceResponse = deps
-    //    .querier
-    //    .query_wasm_smart(
-    //        &info.sender, 
-    //        &cw20::Cw20QueryMsg::Balance {address: wrapper.sender},
-    //    )?;
-    
-    // verify it's >= wrapper.amount
-    //if bal_res.balance <= wrapper.amount {
-    //    return Err(ContractError::ToDo {});
-    //};
+    // Load config for whitelist check
+    let config = CONFIG.load(deps.storage)?;
 
+    // Check constructed cw20 balance <line 99>, returns contract error if not
+    is_balance_whitelisted(&balance, &config)?;
 
     match msg {
         // Message included in the "Send{contract, amount, **msg**}" call on the cw20 contract,
-        // Sent to this contract from the cw20 contract
         ReceiveMsg::AnExecuteMsg {} => {
             execute_do_something(deps, &user_wallet, &info.sender, balance)
         }

@@ -9,6 +9,9 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("Address not whitelisted")]
+    NotWhitelisted {},
+
     #[error("To Do Error")]
     ToDo {},
 }
