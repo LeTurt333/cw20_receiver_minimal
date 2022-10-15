@@ -13,7 +13,8 @@ use crate::state::*;
 use std::str;
 
 // The Personals
-use cw20::{Balance, Cw20CoinVerified, Cw20ReceiveMsg};
+use cw20::{
+    Balance, Cw20CoinVerified, Cw20ReceiveMsg, BalanceResponse};
 
 const CONTRACT_NAME: &str = "crates.io:cw20_receiver_minimal";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -48,10 +49,18 @@ pub fn instantiate(
         .add_attribute("admin", admin))
 }
 
-//////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-///////////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-////////////// Execute
-///////////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//// Execute
+////
+//// This contract's Execute endpoint will be called directly by the
+//// Cw20 contract itself <not by the user>
+////
+//// To get the Cw20 contract to do this, the user will need to call 
+//// the "Send{contract, amount, msg}" execute on the Cw20 contract,
+//// -> Where "contract" is the Address of this contract
+//// -> Where "amount" is the amount of Cw20 tokens to send to this contract
+//// -> Where "msg" is <in binary> is the ReceiveMsg variant on line 102
+////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
@@ -87,8 +96,24 @@ pub fn execute_receive(
         amount: wrapper.amount,
     });
 
+    // If you wanted to add a <perhaps unnecessary> check that the user has enough tokens
+    // you could query the sending contract to get user's balance & verify it's >= wrapper.amount
+    //let bal_res: BalanceResponse = deps
+    //    .querier
+    //    .query_wasm_smart(
+    //        &info.sender, 
+    //        &cw20::Cw20QueryMsg::Balance {address: wrapper.sender},
+    //    )?;
+    
+    // verify it's >= wrapper.amount
+    //if bal_res.balance <= wrapper.amount {
+    //    return Err(ContractError::ToDo {});
+    //};
+
+
     match msg {
-        // Message included in the "Send{contract, amount, **msg**}" call to the cw20 contract
+        // Message included in the "Send{contract, amount, **msg**}" call on the cw20 contract,
+        // Sent to this contract from the cw20 contract
         ReceiveMsg::AnExecuteMsg {} => {
             execute_do_something(deps, &user_wallet, &info.sender, balance)
         }
@@ -101,7 +126,8 @@ pub fn execute_do_something(
     _cw20_contract_addr: &Addr,
     _balance: Balance,
 ) -> Result<Response, ContractError> {
-    // insert your logic here
+
+    // insert your execution logic here
 
     Ok(Response::default())
 }
@@ -140,9 +166,4 @@ mod tests {
         assert_eq!(in_prod, true);
     }
 
-    #[test]
-    fn test2() {
-        let ishouldseriouslywritesometeststho = true;
-        assert_eq!(ishouldseriouslywritesometeststho, true);
-    }
 }
